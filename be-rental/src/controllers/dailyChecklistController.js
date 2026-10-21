@@ -70,6 +70,7 @@ const getDailyChecklist = async (req, res) => {
       total_tidak_tersedia: allDateRecords.filter(r => r.status_ketersediaan === 'TIDAK_TERSEDIA').length,
       total_stok_menipis: allDateRecords.filter(r => r.status_ketersediaan === 'STOK_MENIPIS').length,
       total_tidak_aktif: allDateRecords.filter(r => r.status_ketersediaan === 'TIDAK_AKTIF').length,
+      foto_rak: allDateRecords.find(r => r.foto_rak)?.foto_rak || null,
     };
 
     return successResponse(res, 'Data checklist harian berhasil diambil', {
@@ -104,13 +105,84 @@ const triggerManualCheck = async (req, res) => {
 };
 
 /**
+ * PATCH /api/daily-checklist/:id/toggle-check
+ * Manually toggle or set checklist status for a specific tool item.
+ */
+const toggleCheck = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_checked, keterangan } = req.body;
+
+    const item = await DailyChecklist.findByPk(id, {
+      include: [{ model: Alat, as: 'alat' }],
+    });
+
+    if (!item) {
+      return errorResponse(res, 'Item checklist tidak ditemukan', 404);
+    }
+
+    const newIsChecked = typeof is_checked === 'boolean' ? is_checked : !item.is_checked;
+    const waktuNow = getWIBTimeString();
+
+    await item.update({
+      is_checked: newIsChecked,
+      waktu_pemeriksaan: waktuNow,
+      tipe_pemeriksaan: 'MANUAL',
+      keterangan: keterangan !== undefined ? keterangan : (newIsChecked ? 'Stok terverifikasi di kantor (manual checklist).' : 'Belum diverifikasi fisik di kantor.'),
+    });
+
+    await AuditLog.create({
+      user_id: req.user.id,
+      aktivitas: `Admin ${req.user.nama} mengubah status checklist ${item.alat?.nama_alat || 'Alat'} menjadi ${newIsChecked ? 'CHECKED' : 'UNCHECKED'}.`,
+    }).catch(() => {});
+
+    return successResponse(res, 'Status checklist berhasil diperbarui', item);
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+/**
+ * POST /api/daily-checklist/upload-foto-rak
+ * Upload documentation photo of storage racks for the daily checklist.
+ */
+const uploadFotoRak = async (req, res) => {
+  try {
+    const { tanggal = getWIBDateString() } = req.body;
+    if (!req.file) {
+      return errorResponse(res, 'File foto rak penyimpanan wajib diupload', 400);
+    }
+
+    const relativePath = req.file.path.replace(/\\/g, '/');
+
+    // Update all daily_checklists records for this date
+    await DailyChecklist.update(
+      { foto_rak: relativePath },
+      { where: { tanggal_pemeriksaan: tanggal } }
+    );
+
+    await AuditLog.create({
+      user_id: req.user.id,
+      aktivitas: `Admin ${req.user.nama} mengunggah foto dokumentasi rak alat untuk tanggal ${tanggal}.`,
+    }).catch(() => {});
+
+    return successResponse(res, 'Foto dokumentasi rak penyimpanan berhasil diunggah', {
+      tanggal,
+      foto_rak: relativePath,
+    });
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+/**
  * GET /api/daily-checklist/history
  * Retrieves permanent history of daily checklist inspections grouped by date.
  */
 const getHistory = async (req, res) => {
   try {
     const allRecords = await DailyChecklist.findAll({
-      attributes: ['tanggal_pemeriksaan', 'waktu_pemeriksaan', 'status_ketersediaan', 'tipe_pemeriksaan', 'created_at', 'updated_at'],
+      attributes: ['tanggal_pemeriksaan', 'waktu_pemeriksaan', 'status_ketersediaan', 'tipe_pemeriksaan', 'foto_rak', 'created_at', 'updated_at'],
       order: [['tanggal_pemeriksaan', 'DESC']],
     });
 
@@ -123,6 +195,7 @@ const getHistory = async (req, res) => {
           tanggal_pemeriksaan: dateKey,
           waktu_pemeriksaan: rec.waktu_pemeriksaan,
           tipe_pemeriksaan: rec.tipe_pemeriksaan,
+          foto_rak: rec.foto_rak || null,
           last_updated: rec.updated_at,
           total_alat: 0,
           total_tersedia: 0,
@@ -131,6 +204,9 @@ const getHistory = async (req, res) => {
         };
       }
 
+      if (rec.foto_rak && !grouped[dateKey].foto_rak) {
+        grouped[dateKey].foto_rak = rec.foto_rak;
+      }
       grouped[dateKey].total_alat += 1;
       if (rec.status_ketersediaan === 'TERSEDIA') grouped[dateKey].total_tersedia += 1;
       else if (rec.status_ketersediaan === 'TIDAK_TERSEDIA') grouped[dateKey].total_tidak_tersedia += 1;
@@ -145,8 +221,51 @@ const getHistory = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/daily-checklist/:id/upload-foto-alat
+ * Upload physical photo proof for a specific tool checklist item.
+ */
+const uploadFotoAlat = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file) {
+      return errorResponse(res, 'File foto alat wajib diupload', 400);
+    }
+
+    const item = await DailyChecklist.findByPk(id, {
+      include: [{ model: Alat, as: 'alat' }],
+    });
+
+    if (!item) {
+      return errorResponse(res, 'Item checklist tidak ditemukan', 404);
+    }
+
+    const relativePath = req.file.path.replace(/\\/g, '/');
+
+    await item.update({
+      foto_fisik: relativePath,
+      is_checked: true,
+      waktu_pemeriksaan: getWIBTimeString(),
+      tipe_pemeriksaan: 'MANUAL',
+    });
+
+    await AuditLog.create({
+      user_id: req.user.id,
+      aktivitas: `Admin ${req.user.nama} mengunggah foto fisik alat ${item.alat?.nama_alat || ''}.`,
+    }).catch(() => {});
+
+    return successResponse(res, 'Foto fisik alat berhasil diunggah', item);
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 module.exports = {
   getDailyChecklist,
   triggerManualCheck,
   getHistory,
+  toggleCheck,
+  uploadFotoRak,
+  uploadFotoAlat,
 };
+

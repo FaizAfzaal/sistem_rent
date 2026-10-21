@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Eye, EyeOff, Wrench, Mail, Lock, ArrowRight, ShieldCheck, Sparkles, UserCheck, KeyRound, Truck, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ScLogoIcon from '../../components/common/ScLogoIcon';
 
 export default function LoginPage() {
   const { login, loading } = useAuth();
@@ -24,13 +25,14 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await login(form.email, form.password);
     if (result.success) {
-      if (result.role === 'customer') {
+      const roleStr = typeof result.role === 'object' ? (result.role?.nama_role || '') : String(result.role || '');
+      const roleLower = roleStr.toLowerCase().trim();
+      if (roleLower === 'customer') {
         toast.error('Customer tidak dapat login ke sistem ini. Akses khusus Petugas Admin & Keuangan.');
         return;
       }
       toast.success('Selamat datang kembali!');
-      const roleLower = result.role?.toLowerCase() || '';
-      if (['keuangan', 'finance', 'admin_finance', 'admin finance'].includes(roleLower)) {
+      if (selectedPortal === 'finance') {
         navigate('/finance/booking-masuk');
       } else {
         navigate('/admin/select-module');
@@ -52,12 +54,10 @@ export default function LoginPage() {
         {/* Brand Header */}
         <div className="relative z-10">
           <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/15 shadow-xl">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <Wrench className="h-5 w-5 text-white stroke-[2.5]" />
-            </div>
+            <ScLogoIcon className="w-10 h-10" innerTextSize="text-base" />
             <div>
               <span className="text-xl font-black tracking-tight">Rental<span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Hub</span></span>
-              <span className="block text-[10px] font-bold text-indigo-300 uppercase tracking-widest -mt-0.5">Heavy Equipment Portal</span>
+              <span className="block text-[10px] font-bold text-indigo-300 uppercase tracking-widest -mt-0.5">Rental Sampling Equipment</span>
             </div>
           </div>
         </div>
@@ -66,7 +66,7 @@ export default function LoginPage() {
         <div className="relative z-10 my-auto py-8">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold mb-6">
             <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-            Platform Penyewaan Alat Berat Terintegrasi
+            Platform Penyewaan Alat Sampling Laboratorium Terintegrasi
           </div>
 
           <h2 className="text-4xl xl:text-5xl font-black leading-tight tracking-tight text-white mb-5">
@@ -76,7 +76,7 @@ export default function LoginPage() {
             </span>
           </h2>
           <p className="text-slate-300 text-base leading-relaxed max-w-lg mb-8 font-medium">
-            Sistem manajemen penyewaan alat berat terpadu untuk efisiensi operasional booking, pengelolaan faktur invoice resmi, serta verifikasi keuangan secara akurat.
+            Sistem manajemen penyewaan alat sampling laboratorium terpadu untuk efisiensi operasional booking, pengelolaan faktur invoice resmi, serta verifikasi keuangan secara akurat.
           </p>
 
           {/* Feature Badges */}
@@ -96,7 +96,7 @@ export default function LoginPage() {
           {/* Stat Cards */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              ['500+', 'Unit Alat Berat', 'bg-indigo-500/20 border-indigo-400/30'],
+              ['500+', 'Unit Alat Sampling', 'bg-indigo-500/20 border-indigo-400/30'],
               ['1.2K', 'Transaksi Lunas', 'bg-emerald-500/20 border-emerald-400/30'],
               ['98%', 'Kepuasan Partner', 'bg-violet-500/20 border-violet-400/30']
             ].map(([val, lbl, style]) => (
@@ -110,7 +110,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="relative z-10 flex justify-between items-center text-xs text-slate-400 border-t border-slate-800/80 pt-6">
-          <p>© 2026 PT Rental Heavy Equipment Services.</p>
+          <p>© 2026 PT Scal Technic Services.</p>
           <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
             <ShieldCheck className="h-3.5 w-3.5" /> System Active & Verified
           </span>
@@ -122,10 +122,11 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center text-white shadow-md">
-              <Wrench className="h-5 w-5" />
+            <ScLogoIcon className="w-10 h-10" innerTextSize="text-base" />
+            <div>
+              <span className="text-xl font-black text-slate-900">Rental<span className="text-indigo-600">Hub</span></span>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest -mt-0.5">Rental Sampling Equipment</span>
             </div>
-            <span className="text-xl font-black text-slate-900">Rental<span className="text-indigo-600">Hub</span></span>
           </div>
 
           {/* Login Card */}

@@ -24,6 +24,7 @@ export default function AdminReturnReadyPage() {
 
   // Return Form State Modal
   const [returnModal, setReturnModal] = useState({ open: false, booking: null });
+  const [selectedDetailIds, setSelectedDetailIds] = useState([]);
   const [returnForm, setReturnForm] = useState({
     return_name: '',
     return_phone: '',
@@ -63,6 +64,11 @@ export default function AdminReturnReadyPage() {
     const custName = booking.customer?.full_name || booking.user?.nama || booking.pengambil_nama || '';
     const custPhone = booking.customer?.phone || booking.user?.no_hp || booking.pengambil_no_hp || '';
     const nowWIB = getWIBDateTime();
+
+    const activeDetails = (booking.details || []).filter(d =>
+      ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status)
+    );
+    setSelectedDetailIds(activeDetails.map(d => d.id));
 
     setReturnForm({
       return_name: custName,
@@ -122,11 +128,18 @@ export default function AdminReturnReadyPage() {
       return toast.error(`Jam pengembalian tidak boleh jam yang sudah lewat! Minimal jam saat ini WIB (${nowWIB.time}).`);
     }
 
+    if (selectedDetailIds.length === 0) {
+      return toast.error('Pilih minimal 1 barang yang akan dikembalikan!');
+    }
+
     setSubmitting(true);
     setUploadProgress(0);
     try {
       const fd = new FormData();
       fd.append('booking_id', returnModal.booking.id);
+      selectedDetailIds.forEach(id => {
+        fd.append('booking_detail_ids[]', id);
+      });
       fd.append('return_name', returnForm.return_name);
       fd.append('return_phone', returnForm.return_phone);
       fd.append('return_date', returnForm.return_date);
@@ -284,27 +297,47 @@ export default function AdminReturnReadyPage() {
                 <RentalTimeline status={returnModal.booking.status} />
 
                 {returnModal.booking.details?.length > 0 && (
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-                    <div className="flex justify-between items-center font-extrabold text-slate-800 uppercase tracking-wider text-[11px]">
-                      <span>Daftar Alat Berat Yang Disewa (Itemized):</span>
-                      <span className="text-indigo-600 font-mono">Total: {returnModal.booking.details.length} Jenis Alat</span>
+                  <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 space-y-2 text-xs">
+                    <div className="flex justify-between items-center font-extrabold text-indigo-950 text-xs">
+                      <span>Pilih Barang Yang Dikembalikan (Bisa Parsial atau Semua) *</span>
+                      <span className="text-indigo-600 font-bold bg-indigo-100/80 px-2 py-0.5 rounded-md text-[11px]">
+                        {selectedDetailIds.length} dari {(returnModal.booking.details || []).filter(d => ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status)).length} barang dipilih
+                      </span>
                     </div>
-                    <div className="space-y-2 pt-1">
-                      {returnModal.booking.details.map((d, idx) => (
-                        <div key={d.id || idx} className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-xs font-semibold text-slate-900">
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
-                            <div>
-                              <p className="font-bold text-gray-900">{d.alat?.nama_alat || 'Alat Rental'}</p>
-                              <p className="text-[10px] text-gray-500 font-medium">Periode: {d.tanggal_mulai || returnModal.booking.tanggal_mulai} s/d {d.tanggal_selesai || returnModal.booking.tanggal_selesai}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {(returnModal.booking.details || [])
+                        .filter(d => ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status))
+                        .map(item => (
+                          <label
+                            key={item.id}
+                            className={`flex items-center gap-2.5 p-3 rounded-xl border transition cursor-pointer ${
+                              selectedDetailIds.includes(item.id)
+                                ? 'bg-white border-indigo-500 text-indigo-950 font-bold shadow-xs'
+                                : 'bg-gray-50 border-gray-200 text-gray-400'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDetailIds.includes(item.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDetailIds([...selectedDetailIds, item.id]);
+                                } else {
+                                  if (selectedDetailIds.length === 1) {
+                                    toast.error('Minimal 1 barang harus dipilih untuk dikembalikan!');
+                                    return;
+                                  }
+                                  setSelectedDetailIds(selectedDetailIds.filter(id => id !== item.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                            />
+                            <div className="min-w-0 flex-1 text-xs">
+                              <div className="font-extrabold truncate">{item.alat?.nama_alat || item.nama_alat || 'Unit Alat'}</div>
+                              <div className="text-[11px] font-normal text-gray-500">Qty: {item.qty || 1} Unit • Merk: {item.alat?.merk || '-'}</div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md font-bold text-[11px] block">{d.qty} Unit</span>
-                            <span className="text-[10px] font-extrabold text-emerald-700">Rp {Number(d.subtotal || 0).toLocaleString('id-ID')}</span>
-                          </div>
-                        </div>
-                      ))}
+                          </label>
+                        ))}
                     </div>
                   </div>
                 )}

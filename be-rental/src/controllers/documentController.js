@@ -55,7 +55,14 @@ exports.saveOutgoingSign = async (req, res) => {
     const custAddress = booking.customer?.address || booking.user?.alamat || '-';
     const adminName = req.user?.nama || 'Admin RentalHub';
 
-    const parsedCondition = typeof condition_data === 'string' ? JSON.parse(condition_data) : (condition_data || {});
+    let outgoingPhotos = [];
+    if (booking.pickup && booking.pickup.pickup_photos) {
+      try {
+        outgoingPhotos = JSON.parse(booking.pickup.pickup_photos);
+      } catch (e) {
+        outgoingPhotos = [booking.pickup.pickup_photos];
+      }
+    }
 
     // Generate Outgoing PDF
     await generateOutgoingPDF({
@@ -65,9 +72,11 @@ exports.saveOutgoingSign = async (req, res) => {
       customer_phone: custPhone,
       customer_email: custEmail,
       customer_address: custAddress,
-      nama_alat: alatObj.nama_alat || 'Alat Berat',
+      nama_alat: alatObj.nama_alat || 'Alat',
       kode_alat: alatObj.kode_alat || '-',
       merk: alatObj.merk || '-',
+      gambar_alat: alatObj.gambar || null,
+      photos: outgoingPhotos,
       lama_sewa: Math.max(1, Math.ceil((new Date(booking.tanggal_selesai) - new Date(booking.tanggal_mulai)) / 86400000) + 1),
       tanggal_keluar: booking.tanggal_mulai,
       jam_keluar: firstDetail.jam_mulai || booking.jam_mulai || '08:00',
@@ -219,8 +228,9 @@ exports.saveReturnSign = async (req, res) => {
       kode_booking: booking.kode_booking,
       customer_name: custName,
       customer_phone: custPhone,
-      nama_alat: alatObj.nama_alat || 'Alat Berat',
+      nama_alat: alatObj.nama_alat || 'Alat',
       kode_alat: alatObj.kode_alat || '-',
+      gambar_alat: alatObj.gambar || null,
       tanggal_keluar: booking.tanggal_mulai,
       jadwal_kembali_kontrak: booking.tanggal_selesai,
       waktu_kembali_aktual: waktu_kembali_aktual || new Date().toLocaleString('id-ID'),

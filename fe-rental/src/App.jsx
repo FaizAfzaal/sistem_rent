@@ -50,7 +50,7 @@ import ProfilePage from './pages/ProfilePage';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <Toaster
           position="top-right"
@@ -92,7 +92,7 @@ export default function App() {
           <Route path="/admin/bookings/:id/form" element={<StaffRoute><BookingDetailPage /></StaffRoute>} />
           <Route path="/admin/pembayaran" element={<KeuanganRoute><PembayaranAdminPage /></KeuanganRoute>} />
           <Route path="/admin/pengembalian" element={<KeuanganRoute><PengembalianAdminPage /></KeuanganRoute>} />
-          <Route path="/admin/users" element={<AdminRoute><UsersAdminPage /></AdminRoute>} />
+          <Route path="/admin/users" element={<StaffRoute><UsersAdminPage /></StaffRoute>} />
           <Route path="/admin/logbook" element={<BookingOnlyRoute><LogBookPage /></BookingOnlyRoute>} />
           <Route path="/admin/checklist" element={<BookingOnlyRoute><DailyChecklistPage /></BookingOnlyRoute>} />
 
@@ -114,6 +114,7 @@ export default function App() {
           <Route path="/finance/invoice" element={<KeuanganRoute><InvoicePage /></KeuanganRoute>} />
           <Route path="/finance/riwayat-transaksi" element={<KeuanganRoute><RiwayatTransaksiPage /></KeuanganRoute>} />
           <Route path="/finance/laporan-keuangan" element={<KeuanganRoute><LaporanKeuanganPage /></KeuanganRoute>} />
+          <Route path="/finance/users" element={<KeuanganRoute><UsersAdminPage /></KeuanganRoute>} />
 
           {/* Shared */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

@@ -56,6 +56,14 @@ const DailyChecklist = sequelize.define(
       allowNull: false,
       defaultValue: 'OTOMATIS',
     },
+    foto_rak: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    foto_fisik: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     tableName: 'daily_checklists',

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -26,12 +26,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+      window.location.href = `${basePath}/login`;
     }
     return Promise.reject(error);
   }
 );
 
-export const IMAGE_BASE = 'http://localhost:3000';
+export const IMAGE_BASE = import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:3000';
 
 export default api;

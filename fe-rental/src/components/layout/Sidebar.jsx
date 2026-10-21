@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import ScLogoIcon from '../common/ScLogoIcon';
 import {
   LayoutDashboard, Wrench, Tag, ShoppingCart, CreditCard, RotateCcw,
   Users, LogOut, User, ChevronRight, X, ShoppingBag, Table,
@@ -12,6 +13,7 @@ const adminMenu = [
   { to: '/admin/checklist',    icon: ClipboardCheck,  label: 'Checklist Harian' },
   { to: '/admin/bookings',     icon: ShoppingCart,    label: 'Data Booking' },
   { to: '/admin/logbook',      icon: Table,           label: 'Log Book Rental' },
+  { to: '/admin/users',        icon: Users,           label: 'User Management' },
 ];
 
 const pickupMenu = [
@@ -37,6 +39,7 @@ const keuanganMenu = [
   { to: '/finance/invoice',         icon: FileText,        label: 'Invoice' },
   { to: '/finance/riwayat-transaksi', icon: History,       label: 'Riwayat Transaksi' },
   { to: '/finance/laporan-keuangan',  icon: BarChart3,     label: 'Laporan Keuangan' },
+  { to: '/finance/users',           icon: Users,           label: 'User Management' },
 ];
 
 const customerMenu = [
@@ -89,12 +92,10 @@ export default function Sidebar({ mobileOpen, onClose }) {
             className="flex items-center gap-3 cursor-pointer group transition-all"
             title="Kembali ke Portal Pilihan Modul Admin"
           >
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
-              <Wrench className="h-5 w-5 text-white stroke-[2.5]" />
-            </div>
+            <ScLogoIcon className="w-10 h-10 group-hover:scale-105 transition-transform" innerTextSize="text-base" />
             <div>
               <span className="text-xl font-black tracking-tight text-white group-hover:text-indigo-200 transition-colors">Rental<span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Hub</span></span>
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-0.5">Heavy Equipment</span>
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-0.5">Rental Sampling Equipment</span>
             </div>
           </div>
           <button onClick={onClose} className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">

@@ -15,7 +15,7 @@ const authenticate = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ success: false, message: 'Token tidak ditemukan' });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rental_secret_key_2024');
 
     const user = await User.findByPk(decoded.id, {
       include: [{ model: Role, as: 'role' }],

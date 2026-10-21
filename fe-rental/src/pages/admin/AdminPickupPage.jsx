@@ -85,24 +85,37 @@ export default function AdminPickupPage() {
 
     const activeDetails = targetDetail 
       ? [targetDetail] 
-      : (booking.details || []).filter(d => d.tanggal_mulai <= todayStr && ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi'].includes(d.status));
+      : (booking.details || []).filter(d => ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi', 'MENUNGGU_KETERSEDIAAN'].includes(d.status));
 
     const targetDate = targetDetail?.tanggal_mulai || booking.tanggal_mulai || nowWIB.date;
     const initialPickupDate = targetDate < nowWIB.date ? nowWIB.date : targetDate;
 
-    // Populate checklist snapshot items for pickup modal
+    // Populate checklist snapshot items for pickup modal per alat
     const initChecklists = {};
     activeDetails.forEach(d => {
-      const itemChecklists = d.checklists || booking.checklists || [];
+      let itemChecklists = [];
+      if (d.checklists && d.checklists.length > 0) {
+        itemChecklists = d.checklists;
+      } else if (booking.checklists && booking.checklists.length > 0) {
+        itemChecklists = booking.checklists.filter(c => c.booking_detail_id === d.id || (!c.booking_detail_id && c.alat_id === d.alat_id));
+      }
+
+      if (itemChecklists.length === 0 && activeDetails.length === 1 && booking.checklists) {
+        itemChecklists = booking.checklists;
+      }
+
       itemChecklists.forEach(c => {
-        if (!c.booking_detail_id || c.booking_detail_id === d.id) {
-          initChecklists[c.id] = {
-            id: c.id,
-            nama_kelengkapan: c.nama_kelengkapan,
-            status_keluar: c.status_keluar || 'ADA',
-            keterangan_keluar: c.keterangan_keluar || '',
-          };
-        }
+        initChecklists[c.id] = {
+          id: c.id,
+          booking_detail_id: d.id,
+          alat_id: d.alat_id,
+          nama_alat: d.alat?.nama_alat || 'Alat',
+          kode_alat: d.alat?.kode_alat || '',
+          qty: d.qty || 1,
+          nama_kelengkapan: c.nama_kelengkapan,
+          status_keluar: c.status_keluar || 'ADA',
+          keterangan_keluar: c.keterangan_keluar || '',
+        };
       });
     });
     setChecklistsState(initChecklists);
@@ -1180,13 +1193,13 @@ export default function AdminPickupPage() {
                 <p className="text-[11px] text-gray-400">Dokumentasikan seluruh fisik dan kelengkapan alat sebelum dibawa customer.</p>
               </div>
 
-              {/* SECTION PEMERIKSAAN KELENGKAPAN BARANG */}
-              <div className="sm:col-span-2 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-200 space-y-3">
+              {/* SECTION PEMERIKSAAN KELENGKAPAN BARANG PER ALAT */}
+              <div className="sm:col-span-2 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-200 space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="block font-extrabold text-indigo-950 uppercase tracking-wider text-xs flex items-center gap-2">
-                    <CheckSquare className="h-4 w-4 text-indigo-600" /> Pemeriksaan Kelengkapan Barang
+                    <CheckSquare className="h-4 w-4 text-indigo-600" /> Pemeriksaan Kelengkapan Barang Per Alat
                   </label>
-                  <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full">
                     Master Data Alat
                   </span>
                 </div>
@@ -1194,65 +1207,190 @@ export default function AdminPickupPage() {
                 {Object.keys(checklistsState).length === 0 ? (
                   <p className="text-xs text-gray-500 italic">Tidak ada checklist kelengkapan khusus tercatat untuk alat ini.</p>
                 ) : (
-                  <div className="space-y-2.5 pt-1">
-                    {Object.values(checklistsState).map(item => {
-                      const isAda = item.status_keluar === 'ADA';
+                  <div className="space-y-4 pt-1">
+                    {(processModal.activeDetails || processModal.booking?.details || []).map(detail => {
+                      const detailItems = Object.values(checklistsState).filter(
+                        c => c.booking_detail_id === detail.id || (!c.booking_detail_id && (processModal.activeDetails || []).length === 1)
+                      );
+
+                      if (detailItems.length === 0) return null;
+
                       return (
-                        <div key={item.id} className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
-                              <Package className="h-3.5 w-3.5 text-indigo-500" />
-                              {item.nama_kelengkapan}
-                            </span>
-                            <div className="flex items-center gap-2">
+                        <div key={detail.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                          {/* Header Alat */}
+                          <div className="bg-slate-50 px-4 py-2.5 border-b border-gray-200/80 flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                <Package className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-xs text-slate-900 flex items-center gap-2">
+                                  {detail.alat?.nama_alat || 'Alat'}
+                                  {detail.alat?.kode_alat && (
+                                    <span className="font-mono text-[10px] text-gray-600 font-bold bg-gray-200/80 px-1.5 py-0.5 rounded">
+                                      {detail.alat.kode_alat}
+                                    </span>
+                                  )}
+                                </h4>
+                                <p className="text-[10px] text-gray-500 font-medium">
+                                  Jumlah Disewa: <strong className="text-slate-800">{detail.qty || 1} Unit</strong>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Batch Action per Alat */}
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => setChecklistsState(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], status_keluar: 'ADA', keterangan_keluar: '' }
-                                }))}
-                                className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all ${
-                                  isAda
-                                    ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                }`}
+                                onClick={() => {
+                                  setChecklistsState(prev => {
+                                    const next = { ...prev };
+                                    detailItems.forEach(item => {
+                                      next[item.id] = { ...next[item.id], status_keluar: 'ADA', keterangan_keluar: '' };
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                className="text-[11px] font-extrabold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                title="Tandai semua kelengkapan alat ini ADA"
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5" /> ADA
+                                ✓ Semua Ada
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setChecklistsState(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], status_keluar: 'TIDAK_ADA' }
-                                }))}
-                                className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all ${
-                                  !isAda
-                                    ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500'
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                }`}
+                                onClick={() => {
+                                  setChecklistsState(prev => {
+                                    const next = { ...prev };
+                                    detailItems.forEach(item => {
+                                      next[item.id] = { ...next[item.id], status_keluar: 'TIDAK_ADA' };
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                className="text-[11px] font-extrabold text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                title="Tandai semua kelengkapan alat ini TIDAK ADA"
                               >
-                                <XCircle className="h-3.5 w-3.5" /> TIDAK ADA
+                                ✕ Semua Tidak Ada
                               </button>
                             </div>
                           </div>
 
-                          {!isAda && (
-                            <div className="pt-1">
-                              <input
-                                type="text"
-                                placeholder="Keterangan kekurangannya... (Contoh: Kabel charger tidak tersedia saat barang keluar.)"
-                                value={item.keterangan_keluar || ''}
-                                onChange={e => setChecklistsState(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], keterangan_keluar: e.target.value }
-                                }))}
-                                className="w-full px-3 py-1.5 text-xs bg-red-50 border border-red-200 rounded-lg text-red-900 focus:ring-2 focus:ring-red-500 font-medium"
-                              />
-                            </div>
-                          )}
+                          {/* List Kelengkapan Khusus Alat Ini */}
+                          <div className="p-3 space-y-2 divide-y divide-gray-100">
+                            {detailItems.map(item => {
+                              const isAda = item.status_keluar === 'ADA';
+                              return (
+                                <div key={item.id} className="pt-2 first:pt-0 flex flex-col gap-2">
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <span className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                      {item.nama_kelengkapan}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setChecklistsState(prev => ({
+                                          ...prev,
+                                          [item.id]: { ...prev[item.id], status_keluar: 'ADA', keterangan_keluar: '' }
+                                        }))}
+                                        className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all ${
+                                          isAda
+                                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        <CheckCircle2 className="h-3.5 w-3.5" /> ADA
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setChecklistsState(prev => ({
+                                          ...prev,
+                                          [item.id]: { ...prev[item.id], status_keluar: 'TIDAK_ADA' }
+                                        }))}
+                                        className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all ${
+                                          !isAda
+                                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        <XCircle className="h-3.5 w-3.5" /> TIDAK ADA
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {!isAda && (
+                                    <div className="pt-0.5">
+                                      <input
+                                        type="text"
+                                        placeholder={`Keterangan kekurangan untuk ${item.nama_kelengkapan}...`}
+                                        value={item.keterangan_keluar || ''}
+                                        onChange={e => setChecklistsState(prev => ({
+                                          ...prev,
+                                          [item.id]: { ...prev[item.id], keterangan_keluar: e.target.value }
+                                        }))}
+                                        className="w-full px-3 py-1.5 text-xs bg-red-50 border border-red-200 rounded-lg text-red-900 focus:ring-2 focus:ring-red-500 font-medium"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
+
+                    {/* Fallback item kelengkapan yang belum terasosiasi detail tertentu jika ada */}
+                    {(() => {
+                      const activeDetailIds = new Set((processModal.activeDetails || processModal.booking?.details || []).map(d => d.id));
+                      const unmapped = Object.values(checklistsState).filter(
+                        c => c.booking_detail_id && !activeDetailIds.has(c.booking_detail_id)
+                      );
+                      if (unmapped.length === 0) return null;
+                      return (
+                        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                          <div className="bg-slate-50 px-4 py-2 border-b border-gray-200">
+                            <h4 className="font-bold text-xs text-slate-700">Kelengkapan Lainnya</h4>
+                          </div>
+                          <div className="p-3 space-y-2">
+                            {unmapped.map(item => {
+                              const isAda = item.status_keluar === 'ADA';
+                              return (
+                                <div key={item.id} className="flex items-center justify-between flex-wrap gap-2">
+                                  <span className="font-bold text-xs text-gray-900">{item.nama_kelengkapan}</span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setChecklistsState(prev => ({
+                                        ...prev,
+                                        [item.id]: { ...prev[item.id], status_keluar: 'ADA', keterangan_keluar: '' }
+                                      }))}
+                                      className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 ${
+                                        isAda ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                                      }`}
+                                    >
+                                      ADA
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setChecklistsState(prev => ({
+                                        ...prev,
+                                        [item.id]: { ...prev[item.id], status_keluar: 'TIDAK_ADA' }
+                                      }))}
+                                      className={`px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1 ${
+                                        !isAda ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-500'
+                                      }`}
+                                    >
+                                      TIDAK ADA
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

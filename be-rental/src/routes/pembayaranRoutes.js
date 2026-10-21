@@ -9,9 +9,9 @@ const validate = require('../middleware/validate');
 router.use(authenticate);
 
 router.get('/', pembayaranController.getAll);
+router.get('/export/excel', authorize('admin', 'keuangan', 'finance', 'admin_finance'), pembayaranController.exportExcel);
+router.get('/export/pdf', authorize('admin', 'keuangan', 'finance', 'admin_finance'), pembayaranController.exportPDF);
 router.get('/:id', pembayaranController.getById);
-router.get('/export/excel', authorize('admin', 'keuangan'), pembayaranController.exportExcel);
-router.get('/export/pdf', authorize('admin', 'keuangan'), pembayaranController.exportPDF);
 
 router.post(
   '/',

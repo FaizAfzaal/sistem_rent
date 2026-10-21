@@ -32,6 +32,7 @@ export default function AdminRentedPage() {
 
   // Return Form State Modal
   const [returnModal, setReturnModal] = useState({ open: false, booking: null });
+  const [selectedDetailIds, setSelectedDetailIds] = useState([]);
   const [returnForm, setReturnForm] = useState({
     return_name: '',
     return_phone: '',
@@ -71,6 +72,11 @@ export default function AdminRentedPage() {
   const openReturnModal = (booking) => {
     const custName = booking.customer?.full_name || booking.user?.nama || booking.pengambil_nama || '';
     const custPhone = booking.customer?.phone || booking.user?.no_hp || booking.pengambil_no_hp || '';
+
+    const activeDetails = (booking.details || []).filter(d =>
+      ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status)
+    );
+    setSelectedDetailIds(activeDetails.map(d => d.id));
 
     setReturnForm({
       return_name: custName,
@@ -114,10 +120,17 @@ export default function AdminRentedPage() {
       return toast.error('Nama Pengembali, No. HP, dan Tanda Tangan wajib diisi!');
     }
 
+    if (selectedDetailIds.length === 0) {
+      return toast.error('Pilih minimal 1 barang yang akan dikembalikan!');
+    }
+
     setSubmitting(true);
     try {
       const fd = new FormData();
       fd.append('booking_id', returnModal.booking.id);
+      selectedDetailIds.forEach(id => {
+        fd.append('booking_detail_ids[]', id);
+      });
       fd.append('return_name', returnForm.return_name);
       fd.append('return_phone', returnForm.return_phone);
       fd.append('return_date', returnForm.return_date);
@@ -196,7 +209,7 @@ export default function AdminRentedPage() {
         </div>
 
         {/* SUMMARY CARDS METRICS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-extrabold">
               <Package className="h-6 w-6" />
@@ -224,16 +237,6 @@ export default function AdminRentedPage() {
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Terlambat Kembali</p>
               <h3 className="text-2xl font-black text-rose-600">{metrics.terlambatKembali} <span className="text-xs font-bold text-gray-400">Unit</span></h3>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold">
-              <DollarSign className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Nilai Rental Aktif</p>
-              <h3 className="text-lg font-black text-emerald-700">Rp {Number(metrics.totalNilaiAktif || 0).toLocaleString('id-ID')}</h3>
             </div>
           </div>
         </div>
@@ -443,6 +446,55 @@ export default function AdminRentedPage() {
           <form onSubmit={handleReturnSubmit} className="space-y-5">
             {returnModal.booking && (
               <RentalTimeline status={returnModal.booking.status} />
+            )}
+
+            {/* Pilihan Barang yang Dikembalikan (Support Pengembalian Parsial) */}
+            {returnModal.booking?.details && (
+              <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <label className="block font-extrabold text-indigo-950 text-xs">
+                    Pilih Barang Yang Dikembalikan (Bisa Parsial atau Semua) *
+                  </label>
+                  <span className="text-[11px] font-bold text-indigo-600 bg-indigo-100/80 px-2 py-0.5 rounded-md">
+                    {selectedDetailIds.length} dari {(returnModal.booking.details || []).filter(d => ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status)).length} barang dipilih
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {(returnModal.booking.details || [])
+                    .filter(d => ['BARANG_SEDANG_DISEWA', 'RENTED', 'disewa', 'SEDANG_DISEWA', 'SIAP_DIKEMBALIKAN', 'WAITING_RETURN', 'PEMERIKSAAN_BARANG'].includes(d.status))
+                    .map(item => (
+                      <label
+                        key={item.id}
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border transition cursor-pointer ${
+                          selectedDetailIds.includes(item.id)
+                            ? 'bg-white border-indigo-500 text-indigo-950 font-bold shadow-xs'
+                            : 'bg-gray-50 border-gray-200 text-gray-400'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDetailIds.includes(item.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDetailIds([...selectedDetailIds, item.id]);
+                            } else {
+                              if (selectedDetailIds.length === 1) {
+                                toast.error('Minimal 1 barang harus dipilih untuk dikembalikan!');
+                                return;
+                              }
+                              setSelectedDetailIds(selectedDetailIds.filter(id => id !== item.id));
+                            }
+                          }}
+                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                        />
+                        <div className="min-w-0 flex-1 text-xs">
+                          <div className="font-extrabold truncate">{item.alat?.nama_alat || item.nama_alat || 'Unit Alat'}</div>
+                          <div className="text-[11px] font-normal text-gray-500">Qty: {item.qty || 1} Unit • Merk: {item.alat?.merk || '-'}</div>
+                        </div>
+                      </label>
+                    ))}
+                </div>
+              </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

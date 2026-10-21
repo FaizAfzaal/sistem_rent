@@ -6,12 +6,12 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { uploadUser } = require('../middleware/upload');
 const validate = require('../middleware/validate');
 
-router.use(authenticate, authorize('admin'));
+router.use(authenticate, authorize('admin', 'keuangan', 'admin_finance', 'finance'));
 
 router.get('/', userController.getAll);
-router.get('/:id', userController.getById);
 router.get('/export/excel', userController.exportExcel);
 router.get('/export/pdf', userController.exportPDF);
+router.get('/:id', userController.getById);
 
 router.post(
   '/',

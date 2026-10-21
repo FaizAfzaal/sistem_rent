@@ -1,3 +1,4 @@
+const net = require('net');
 const app = require('./src/app');
 const { sequelize } = require('./src/models');
 const { initCronScheduler } = require('./src/helpers/cronScheduler');
@@ -5,10 +6,53 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 3000;
 
+// Anti-duplicate check: verify if port is already in use
+const checkPortInUse = (port) => {
+  return new Promise((resolve) => {
+    const client = new net.Socket();
+    client.setTimeout(1000);
+    client.once('connect', () => {
+      client.destroy();
+      resolve(true); // Port is in use
+    });
+    client.once('timeout', () => {
+      client.destroy();
+      resolve(false);
+    });
+    client.once('error', () => {
+      client.destroy();
+      resolve(false);
+    });
+    client.connect(port, '127.0.0.1');
+  });
+};
+
+// Retry database connection until MySQL is ready
+const authenticateWithRetry = async (maxRetries = 30, delayMs = 3000) => {
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      await sequelize.authenticate();
+      console.log('✅ Koneksi database berhasil');
+      return;
+    } catch (error) {
+      console.log(`⏳ Database MySQL (port ${process.env.DB_PORT || 3308}) belum siap. Retrying (${i}/${maxRetries}) dalam ${delayMs / 1000}s... Error: ${error.message}`);
+      if (i === maxRetries) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+};
+
 const startServer = async () => {
   try {
-    await sequelize.authenticate();
-    console.log('✅ Koneksi database berhasil');
+    const inUse = await checkPortInUse(PORT);
+    if (inUse) {
+      console.log(`⚠️ Backend server sudah berjalan di port ${PORT}. Membatalkan startup duplikat.`);
+      process.exit(0);
+    }
+
+    await authenticateWithRetry();
 
     await sequelize.sync();
     const safeAlter = async (query) => {
@@ -37,6 +81,8 @@ const startServer = async () => {
     await safeAlter('ALTER TABLE `return_transactions` ADD COLUMN `booking_detail_id` BIGINT NULL AFTER `booking_id`');
     await safeAlter('ALTER TABLE `invoice_detail` ADD COLUMN `booking_detail_id` BIGINT NULL AFTER `invoice_id`');
     await safeAlter('ALTER TABLE `alat` ADD COLUMN `min_stok` INT DEFAULT 2 AFTER `stok`');
+    await safeAlter('ALTER TABLE `daily_checklists` ADD COLUMN `foto_rak` TEXT NULL');
+    await safeAlter('ALTER TABLE `daily_checklists` ADD COLUMN `foto_fisik` TEXT NULL');
     await safeAlter(`
       CREATE TABLE IF NOT EXISTS \`rental_documents\` (
         \`id\` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -76,9 +122,19 @@ const startServer = async () => {
     // Initialize daily 07:00 WIB cron scheduler
     initCronScheduler();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
       console.log(`📋 API Docs tersedia di http://localhost:${PORT}/api/health`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`⚠️ Port ${PORT} sudah digunakan. Membatalkan instance duplikat.`);
+        process.exit(0);
+      } else {
+        console.error('❌ Server error:', err);
+        process.exit(1);
+      }
     });
   } catch (error) {
     console.error('❌ Gagal koneksi ke database:', error.message);
@@ -87,3 +143,4 @@ const startServer = async () => {
 };
 
 startServer();
+

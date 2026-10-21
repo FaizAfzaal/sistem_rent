@@ -86,7 +86,7 @@ export default function AppLayout({ children }) {
             </button>
             <div className="hidden sm:flex items-center gap-2 text-xs font-extrabold text-slate-500 bg-slate-100/80 border border-slate-200/60 px-3.5 py-1.5 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              Sistem Rental Alat Heavy Equipment Online
+              PT SCAL TECHNIC SERVICES
             </div>
           </div>
 

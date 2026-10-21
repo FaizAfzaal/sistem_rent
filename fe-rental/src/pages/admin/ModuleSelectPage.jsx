@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../lib/api';
+import ScLogoIcon from '../../components/common/ScLogoIcon';
 import { UserCheck, Truck, RotateCcw, Wrench, ShieldCheck, LogOut, Activity, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export default function ModuleSelectPage() {
@@ -68,12 +69,10 @@ export default function ModuleSelectPage() {
           className="flex items-center gap-3 cursor-pointer group transition-all"
           title="Portal Admin 1"
         >
-          <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
-            <Wrench className="h-5 w-5 text-white stroke-[2.5]" />
-          </div>
+          <ScLogoIcon className="w-10 h-10 group-hover:scale-105 transition-transform" innerTextSize="text-base" />
           <div>
             <span className="text-xl font-black tracking-tight text-white group-hover:text-indigo-200 transition-colors">Rental<span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Hub</span></span>
-            <span className="block text-[10px] font-bold text-indigo-300 uppercase tracking-widest -mt-0.5">Admin 1 Portal</span>
+            <span className="block text-[10px] font-bold text-indigo-300 uppercase tracking-widest -mt-0.5">Rental Sampling Equipment</span>
           </div>
         </div>
 
@@ -147,7 +146,7 @@ export default function ModuleSelectPage() {
                 <Activity className="h-5 w-5 text-indigo-400" />
                 Status Operasional Rental
               </h2>
-              <p className="text-xs text-slate-400">Pipeline dan tahapan aktivitas penyewaan alat berat</p>
+              <p className="text-xs text-slate-400">Pipeline dan tahapan aktivitas penyewaan alat sampling laboratorium</p>
             </div>
             <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full w-fit border border-slate-700/50">
               Live Real-time System
@@ -342,7 +341,7 @@ export default function ModuleSelectPage() {
 
       {/* Footer */}
       <footer className="relative z-10 max-w-6xl mx-auto w-full flex items-center justify-between text-xs text-slate-400 pt-6 border-t border-slate-800/80">
-        <p>© 2026 PT Rental Heavy Equipment Services.</p>
+        <p>© 2026 PT Scal Technic Services.</p>
         <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
           <ShieldCheck className="h-3.5 w-3.5" /> Single Authentication Active
         </span>

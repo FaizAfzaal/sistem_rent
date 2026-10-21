@@ -6,12 +6,14 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { uploadAlat } = require('../middleware/upload');
 const validate = require('../middleware/validate');
 
-// GET bisa diakses semua user login
+// GET export routes (harus sebelum /:id agar tidak disangka ID)
+router.get('/export/excel', authenticate, authorize('admin', 'keuangan', 'finance', 'admin_finance', 'ADMIN_BOOKING', 'ADMIN_PICKUP', 'ADMIN_RETURN'), alatController.exportExcel);
+router.get('/export/pdf', authenticate, authorize('admin', 'keuangan', 'finance', 'admin_finance', 'ADMIN_BOOKING', 'ADMIN_PICKUP', 'ADMIN_RETURN'), alatController.exportPDF);
+
+// GET detail & check availability
 router.get('/', authenticate, alatController.getAll);
 router.get('/:id/check-availability', authenticate, alatController.checkAvailability);
 router.get('/:id', authenticate, alatController.getById);
-router.get('/export/excel', authenticate, authorize('admin'), alatController.exportExcel);
-router.get('/export/pdf', authenticate, authorize('admin'), alatController.exportPDF);
 
 // CUD admin & keuangan (master data owner)
 router.post(

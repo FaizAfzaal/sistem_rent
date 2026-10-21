@@ -48,14 +48,14 @@ export default function CreateBookingPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  const [opsiPembayaran, setOpsiPembayaran] = useState('dp'); // 'dp', 'bayar_setelah_selesai', 'lunas_awal'
+  const [opsiPembayaran, setOpsiPembayaran] = useState(''); // 'batal_booking' or empty
   const [persenDp, setPersenDp] = useState(30);
 
   const initWIB = getWIBDateTime();
   const defaultJamMulai = initWIB.time > '09:00' ? initWIB.time : '09:00';
   const [jamMulai, setJamMulai] = useState(defaultJamMulai);
   const [jamSelesai, setJamSelesai] = useState('17:00');
-  const [uangJaminan, setUangJaminan] = useState(100000);
+  const [uangJaminan, setUangJaminan] = useState(0);
   const [jenisJaminan, setJenisJaminan] = useState('KTP Asli');
 
   const [loading, setLoading] = useState(false);
@@ -215,7 +215,7 @@ export default function CreateBookingPage() {
 
   const getJumlahDp = () => {
     const total = getTotalHarga();
-    if (opsiPembayaran === 'bayar_setelah_selesai' || opsiPembayaran === 'batal_booking') return 0;
+    if (opsiPembayaran === 'bayar_setelah_selesai' || opsiPembayaran === 'batal_booking' || !opsiPembayaran) return 0;
     if (opsiPembayaran === 'lunas_awal') return total;
     return Math.round((total * persenDp) / 100);
   };
@@ -376,11 +376,11 @@ export default function CreateBookingPage() {
         pengambil_hubungan: null,
         tanggal_mulai: items[0]?.tanggal_mulai || today,
         tanggal_selesai: items[0]?.tanggal_selesai || tomorrow,
-        opsi_pembayaran: opsiPembayaran,
-        jumlah_dp: getJumlahDp(),
+        opsi_pembayaran: opsiPembayaran === 'batal_booking' ? 'batal_booking' : 'bayar_setelah_selesai',
+        jumlah_dp: 0,
         jam_mulai: primaryJamMulai,
         jam_selesai: primaryJamSelesai,
-        uang_jaminan: uangJaminan,
+        uang_jaminan: 0,
         jenis_jaminan: jenisJaminan,
         catatan,
         items: items.map(i => ({
@@ -714,65 +714,32 @@ export default function CreateBookingPage() {
               <ShieldCheck className="h-5 w-5 text-indigo-600" /> C. Ringkasan Booking & Opsi Pembayaran
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Uang Jaminan / Deposit (Rp)</label>
-                <input
-                  type="number"
-                  value={uangJaminan}
-                  onChange={e => setUangJaminan(Number(e.target.value))}
-                  placeholder="100000"
-                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Jenis Jaminan yang Dititipkan *</label>
-                <select
-                  value={jenisJaminan}
-                  onChange={e => setJenisJaminan(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="KTP Asli">KTP Asli</option>
-                  <option value="SIM Asli">SIM A/C Asli</option>
-                  <option value="STNK Asli">STNK Motor/Mobil Asli</option>
-                  <option value="Paspor Asli">Paspor / KITAS Asli</option>
-                  <option value="Lainnya">Lainnya</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Jenis Jaminan yang Dititipkan *</label>
+              <select
+                value={jenisJaminan}
+                onChange={e => setJenisJaminan(e.target.value)}
+                className="w-full sm:w-1/2 px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="KTP Asli">KTP Asli</option>
+                <option value="SIM Asli">SIM A/C Asli</option>
+                <option value="STNK Asli">STNK Motor/Mobil Asli</option>
+                <option value="Paspor Asli">Paspor / KITAS Asli</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
             </div>
 
             {/* Opsi Pembayaran */}
             <div className="pt-2">
-              <label className="block text-xs font-bold text-gray-800 mb-2">Pilih Sistem Pembayaran (3 Opsi):</label>
+              <label className="block text-xs font-bold text-gray-800 mb-2">Pilih Sistem Pembayaran:</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div
-                  onClick={() => setOpsiPembayaran('dp')}
-                  className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
-                    opsiPembayaran === 'dp' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="font-bold text-xs text-gray-900 block mb-1">1. DP (Down Payment)</span>
-                  <p className="text-[11px] text-gray-500">Bayar DP di awal, sisa tagihan pelunasan nanti.</p>
-                </div>
-
-                <div
-                  onClick={() => setOpsiPembayaran('bayar_setelah_selesai')}
-                  className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
-                    opsiPembayaran === 'bayar_setelah_selesai' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="font-bold text-xs text-gray-900 block mb-1">2. Bayar Setelah Selesai</span>
-                  <p className="text-[11px] text-gray-500">Bayar penuh saat pengembalian barang selesai.</p>
-                </div>
-
-                <div
-                  onClick={() => setOpsiPembayaran('batal_booking')}
+                  onClick={() => setOpsiPembayaran(prev => prev === 'batal_booking' ? '' : 'batal_booking')}
                   className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
                     opsiPembayaran === 'batal_booking' ? 'border-red-600 bg-red-50/60 shadow-sm' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <span className="font-bold text-xs text-red-700 block mb-1">3. Batal Booking</span>
+                  <span className="font-bold text-xs text-red-700 block mb-1">Batal Booking</span>
                   <p className="text-[11px] text-gray-500">Batalkan transaksi sewa ini secara langsung.</p>
                 </div>
               </div>
@@ -784,10 +751,6 @@ export default function CreateBookingPage() {
                 <div className="flex justify-between">
                   <span>Total Sewa Alat:</span>
                   <span className="font-bold text-gray-900">Rp {getTotalHarga().toLocaleString('id-ID')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Uang Jaminan (Deposit):</span>
-                  <span className="font-bold text-gray-900">Rp {Number(uangJaminan).toLocaleString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Wajib Dibayar di Awal:</span>
@@ -818,9 +781,13 @@ export default function CreateBookingPage() {
           <button
             type="submit"
             disabled={loading || adaKonflik}
-            className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-2xl text-base font-extrabold shadow-xl shadow-indigo-200 transition disabled:opacity-50"
+            className={`w-full py-4 text-white rounded-2xl text-base font-extrabold shadow-xl transition disabled:opacity-50 ${
+              opsiPembayaran === 'batal_booking'
+                ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-200'
+                : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-indigo-200'
+            }`}
           >
-            {loading ? 'Menyimpan Formulir & Booking...' : 'Simpan Formulir & Buat Booking Resmi'}
+            {loading ? 'Menyimpan Formulir & Booking...' : (opsiPembayaran === 'batal_booking' ? 'Simpan Sebagai Booking Dibatalkan' : 'Simpan Formulir & Buat Booking Resmi')}
           </button>
         </form>
       </div>

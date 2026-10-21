@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import AppLayout from '../../components/layout/AppLayout';
 import api, { IMAGE_BASE } from '../../lib/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -13,6 +14,7 @@ export default function BookingDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isKeuangan } = useAuth();
   const [booking, setBooking]       = useState(null);
   const [pembayaran, setPembayaran] = useState([]);
   const [docs, setDocs]             = useState({ outgoing: null, return: null });
@@ -56,6 +58,13 @@ export default function BookingDetailPage() {
   const durasi     = Math.max(1, (new Date(booking.tanggal_selesai) - new Date(booking.tanggal_mulai)) / 86400000 + 1);
   const sudahBayar = pembayaran.some(p => ['menunggu', 'lunas'].includes(p.status));
   const bisaBayar  = booking.status === 'pending' && !sudahBayar;
+
+  const formatVal = (val) => {
+    if (val === undefined || val === null || isNaN(Number(val))) return null;
+    return `Rp ${Number(val).toLocaleString('id-ID')}`;
+  };
+
+  const hasPrices = isKeuangan && booking.total_harga !== undefined && !isNaN(Number(booking.total_harga));
 
   const handleDirectDownloadOutgoing = async () => {
     if (docs.outgoing?.id) {
@@ -139,22 +148,22 @@ export default function BookingDetailPage() {
           </button>
 
           <div className="flex items-center gap-2">
-            {/* HANYA 1 TOMBOL PDF SESUAI TAHAP RENTAL */}
+            {/* TOMBOL PDF PENYERAHAN */}
             {(docs.return || ['SELESAI', 'SELESAI_DISEWA', 'BARANG_KEMBALI', 'PEMERIKSAAN', 'selesai'].includes(booking.status)) ? (
               <button
                 onClick={handleDirectDownloadReturn}
                 className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-                title="Download PDF Pengembalian"
+                title="Download PDF Penyerahan / Pengembalian"
               >
-                <Download className="h-4 w-4 text-slate-700" /> PDF Pengembalian
+                <Download className="h-4 w-4 text-slate-700" /> PDF Penyerahan
               </button>
             ) : (
               <button
                 onClick={handleDirectDownloadOutgoing}
                 className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-                title="Download PDF Serah Terima"
+                title="Download PDF Penyerahan"
               >
-                <Download className="h-4 w-4 text-slate-700" /> PDF Serah Terima
+                <Download className="h-4 w-4 text-slate-700" /> PDF Penyerahan
               </button>
             )}
           </div>
@@ -171,7 +180,7 @@ export default function BookingDetailPage() {
                   <FileCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase text-indigo-600 tracking-widest">PT. SISTEM RENTAL ALAT BERAT</p>
+                  <p className="text-[10px] font-black uppercase text-indigo-600 tracking-widest">PT SCAL TECHNIC SERVICES</p>
                   <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Formulir Penyewaan Alat Resmi</h1>
                 </div>
               </div>
@@ -236,7 +245,7 @@ export default function BookingDetailPage() {
                     <th className="p-2.5">Tanggal Sewa</th>
                     <th className="p-2.5 text-center">Jumlah</th>
                     <th className="p-2.5">Kelengkapan</th>
-                    <th className="p-2.5 text-right">Subtotal</th>
+                    {hasPrices && <th className="p-2.5 text-right">Subtotal</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -250,7 +259,11 @@ export default function BookingDetailPage() {
                         <td className="p-2.5 font-medium">{itemMulai} – {itemSelesai}</td>
                         <td className="p-2.5 text-center font-bold">{d.qty} Unit</td>
                         <td className="p-2.5 text-gray-600">{d.kelengkapan || 'Unit utama & aksesoris'}</td>
-                        <td className="p-2.5 text-right font-bold text-slate-900">Rp {Number(d.subtotal).toLocaleString('id-ID')}</td>
+                        {hasPrices && (
+                          <td className="p-2.5 text-right font-bold text-slate-900">
+                            {formatVal(d.subtotal) || '-'}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -286,35 +299,7 @@ export default function BookingDetailPage() {
           </div>
 
 
-          {/* SECTION D: Rincian Biaya dan Jaminan */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide border-b border-gray-200 pb-1.5 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-indigo-600 print:hidden" /> D. Rincian Biaya dan Jaminan
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-gray-200">
-                <span className="text-gray-500 block">Total Biaya Sewa</span>
-                <span className="font-extrabold text-slate-900 text-sm">Rp {Number(booking.total_harga).toLocaleString('id-ID')}</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-gray-200">
-                <span className="text-gray-500 block">Uang Jaminan (Deposit)</span>
-                <span className="font-extrabold text-slate-900 text-sm">Rp {Number(booking.uang_jaminan || 0).toLocaleString('id-ID')}</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-gray-200">
-                <span className="text-gray-500 block">Jenis Jaminan Dititipkan</span>
-                <span className="font-extrabold text-indigo-700 text-sm">{booking.jenis_jaminan || 'KTP Asli'}</span>
-              </div>
-              <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
-                <span className="text-indigo-700 block font-semibold">Sistem / Status Bayar</span>
-                <span className="font-extrabold text-indigo-900 text-sm uppercase">{(booking.opsi_pembayaran || 'dp')} ({booking.status_pembayaran || 'belum_bayar'})</span>
-              </div>
-            </div>
 
-            <div className="flex justify-between items-center p-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-900">
-              <span>DP Dibayar: Rp {Number(booking.jumlah_dp || 0).toLocaleString('id-ID')}</span>
-              <span>Sisa Tagihan Pelunasan: Rp {Number(booking.sisa_pembayaran || 0).toLocaleString('id-ID')}</span>
-            </div>
-          </div>
 
         </div>
 

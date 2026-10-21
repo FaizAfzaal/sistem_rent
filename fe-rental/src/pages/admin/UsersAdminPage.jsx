@@ -5,7 +5,7 @@ import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Plus, Edit2, Trash2, Search, Users, ToggleLeft, ToggleRight, Upload, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Users, ToggleLeft, ToggleRight, Upload, Download, UserCheck, KeyRound, Truck, RotateCcw, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UsersAdminPage() {
@@ -23,7 +23,26 @@ export default function UsersAdminPage() {
   const [fotoPreview, setPreview]   = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { api.get('/roles').then(r => setRoles(r.data.data || [])).catch(() => {}); }, []);
+  const fallbackRoles = [
+    { id: 1, nama_role: 'admin' },
+    { id: 3, nama_role: 'keuangan' }
+  ];
+
+  const allowedRoleNames = ['admin', 'keuangan', 'finance', 'admin_finance', 'admin 1'];
+
+  const activeRoles = (roles.length > 0 ? roles : fallbackRoles).filter(r => 
+    allowedRoleNames.includes((r.nama_role || '').toLowerCase())
+  );
+
+  useEffect(() => {
+    api.get('/roles')
+      .then(r => {
+        if (r.data?.data && r.data.data.length > 0) {
+          setRoles(r.data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
   useEffect(() => { fetchData(); }, [page, search, filterStatus]);
 
   const fetchData = async () => {
@@ -40,7 +59,7 @@ export default function UsersAdminPage() {
   };
 
   const openCreate = () => {
-    setForm({ nama: '', email: '', password: '', no_hp: '', alamat: '', role_id: roles[1]?.id || roles[0]?.id || '', status: 'aktif' });
+    setForm({ nama: '', email: '', password: '', no_hp: '', alamat: '', role_id: activeRoles[0]?.id || 1, status: 'aktif' });
     setFotoFile(null); setPreview(null);
     setModal({ open: true, item: null });
   };
@@ -113,18 +132,36 @@ export default function UsersAdminPage() {
     } catch (err) { toast.error('Gagal download'); }
   };
 
+  const renderRoleBadge = (roleName) => {
+    const r = (roleName || '').toLowerCase();
+    if (['keuangan', 'finance', 'admin_finance', 'admin finance'].includes(r)) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+          <KeyRound className="w-3.5 h-3.5" />
+          User Invoice (Finance)
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-xs">
+        <UserCheck className="w-3.5 h-3.5" />
+        Admin 1 (Operasional)
+      </span>
+    );
+  };
+
   return (
     <AppLayout>
       <div className="animate-fade-in space-y-6">
         <div className="page-header">
           <div>
-            <h1 className="page-title">Manajemen User</h1>
-            <p className="page-subtitle">Kelola akun admin dan pelanggan sistem</p>
+            <h1 className="page-title">User Management</h1>
+            <p className="page-subtitle">Kelola dan buat akun untuk Admin Operasional dan User Invoice (Admin Finance)</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => downloadExport('/users/export/excel', `users_${Date.now()}.xlsx`)} className="btn-ghost"><Download className="h-4 w-4" /> XLSX</button>
             <button onClick={() => downloadExport('/users/export/pdf', `users_${Date.now()}.pdf`)} className="btn-ghost"><Download className="h-4 w-4" /> PDF</button>
-            <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4" /> Tambah User</button>
+            <button onClick={openCreate} className="btn-primary"><Plus className="h-4 w-4" /> Tambah User Baru</button>
           </div>
         </div>
 
@@ -132,7 +169,7 @@ export default function UsersAdminPage() {
           <div className="flex flex-col sm:flex-row gap-3 p-4 border-b border-gray-100">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input className="input-field pl-10" placeholder="Cari nama, email..." value={search}
+              <input className="input-field pl-10" placeholder="Cari nama, email user..." value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
             <select className="input-field sm:w-40" value={filterStatus} onChange={e => { setFilter(e.target.value); setPage(1); }}>
@@ -147,15 +184,15 @@ export default function UsersAdminPage() {
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Users className="h-7 w-7 text-gray-400" />
               </div>
-              <p className="text-gray-500 font-medium">Belum ada user</p>
+              <p className="text-gray-500 font-medium">Belum ada user terdaftar</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 bg-slate-50">
-                    <th className="table-header">User</th>
-                    <th className="table-header">Role</th>
+                    <th className="table-header">Informasi User</th>
+                    <th className="table-header">Role / Hak Akses</th>
                     <th className="table-header">No. HP</th>
                     <th className="table-header">Status</th>
                     <th className="table-header">Bergabung</th>
@@ -167,36 +204,34 @@ export default function UsersAdminPage() {
                     <tr key={item.id} className="table-row">
                       <td className="table-cell">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full overflow-hidden bg-indigo-100 flex-shrink-0 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-indigo-100 flex-shrink-0 flex items-center justify-center shadow-xs">
                             {item.foto
                               ? <img src={`${IMAGE_BASE}/${item.foto}`} alt={item.nama} className="w-full h-full object-cover" />
-                              : <span className="text-indigo-700 font-bold text-sm">{item.nama?.charAt(0).toUpperCase()}</span>
+                              : <span className="text-indigo-700 font-black text-sm">{item.nama?.charAt(0).toUpperCase()}</span>
                             }
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900 text-sm">{item.nama}</p>
-                            <p className="text-xs text-gray-400">{item.email}</p>
+                            <p className="font-bold text-slate-900 text-sm">{item.nama}</p>
+                            <p className="text-xs text-slate-500 font-medium">{item.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={item.role?.nama_role === 'admin' ? 'badge-admin' : 'badge-customer'}>
-                          {item.role?.nama_role}
-                        </span>
+                        {renderRoleBadge(item.role?.nama_role)}
                       </td>
-                      <td className="table-cell text-gray-500">{item.no_hp || '–'}</td>
+                      <td className="table-cell text-slate-600 font-medium">{item.no_hp || '–'}</td>
                       <td className="table-cell">
                         <button onClick={() => toggleStatus(item.id)}
-                          className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all ${item.status === 'aktif' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${item.status === 'aktif' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                           {item.status === 'aktif' ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
                           {item.status}
                         </button>
                       </td>
-                      <td className="table-cell text-gray-400 text-xs">{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                      <td className="table-cell text-slate-400 text-xs font-medium">{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td className="table-cell text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(item)} className="btn-ghost p-2 text-indigo-600"><Edit2 className="h-4 w-4" /></button>
-                          <button onClick={() => setDelConfirm({ open: true, id: item.id })} className="btn-ghost p-2 text-red-500"><Trash2 className="h-4 w-4" /></button>
+                          <button onClick={() => openEdit(item)} className="btn-ghost p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl" title="Edit User"><Edit2 className="h-4 w-4" /></button>
+                          <button onClick={() => setDelConfirm({ open: true, id: item.id })} className="btn-ghost p-2 text-rose-500 hover:bg-rose-50 rounded-xl" title="Hapus User"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -209,65 +244,78 @@ export default function UsersAdminPage() {
         </div>
 
         {/* Form Modal */}
-        <Modal isOpen={modal.open} onClose={() => setModal({ open: false, item: null })} title={modal.item ? 'Edit User' : 'Tambah User'} size="lg">
+        <Modal isOpen={modal.open} onClose={() => setModal({ open: false, item: null })} title={modal.item ? 'Edit Akun User' : 'Tambah Akun User Baru'} size="lg">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl overflow-hidden bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+              <div className="w-14 h-14 rounded-2xl overflow-hidden bg-indigo-100 flex items-center justify-center flex-shrink-0 shadow-xs border border-indigo-200">
                 {fotoPreview
                   ? <img src={fotoPreview} alt="preview" className="w-full h-full object-cover" />
-                  : <span className="text-2xl font-bold text-indigo-500">{form.nama?.charAt(0)?.toUpperCase() || 'U'}</span>
+                  : <span className="text-xl font-black text-indigo-600">{form.nama?.charAt(0)?.toUpperCase() || 'U'}</span>
                 }
               </div>
-              <label className="cursor-pointer flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-semibold">
-                <Upload className="h-4 w-4" />
-                {fotoPreview ? 'Ganti foto' : 'Upload foto'}
-                <input type="file" accept="image/*" className="hidden" onChange={handleFoto} />
-              </label>
+              <div>
+                <label className="cursor-pointer inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-xs transition-colors">
+                  <Upload className="h-3.5 w-3.5" />
+                  {fotoPreview ? 'Ganti foto profil' : 'Upload foto profil'}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFoto} />
+                </label>
+                <p className="text-[11px] text-slate-400 mt-1 font-medium">Format: JPG, PNG, WEBP (Maks 2MB)</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nama Lengkap</label>
-                <input className="input-field" value={form.nama} onChange={set('nama')} required />
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+                <input className="input-field" value={form.nama} onChange={set('nama')} placeholder="Contoh: Budi Santoso" required />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
-                <input type="email" className="input-field" value={form.email} onChange={set('email')} required />
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Registered</label>
+                <input type="email" className="input-field" value={form.email} onChange={set('email')} placeholder="nama@email.com" required />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Password {modal.item && <span className="text-gray-400 font-normal">(kosongkan jika tidak diubah)</span>}
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Kata Sandi {modal.item && <span className="text-slate-400 font-normal lowercase">(kosongkan jika tak diubah)</span>}
                 </label>
-                <input type="password" className="input-field" placeholder="Min. 6 karakter"
+                <input type="password" className="input-field" placeholder="Minimal 6 karakter"
                   value={form.password} onChange={set('password')} required={!modal.item} />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">No. HP</label>
-                <input className="input-field" value={form.no_hp} onChange={set('no_hp')} placeholder="Opsional" />
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">No. Handphone / WA</label>
+                <input className="input-field" value={form.no_hp} onChange={set('no_hp')} placeholder="08xxxxxxxxxx" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
-                <select className="input-field" value={form.role_id} onChange={set('role_id')} required>
-                  <option value="">Pilih role...</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.nama_role}</option>)}
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Pilih Role Akses</label>
+                <select className="input-field font-semibold text-slate-800" value={form.role_id} onChange={set('role_id')} required>
+                  <option value="">-- Pilih Hak Akses --</option>
+                  {activeRoles.map(r => {
+                    let label = r.nama_role;
+                    const nameLower = (r.nama_role || '').toLowerCase();
+                    if (['keuangan', 'finance', 'admin_finance'].includes(nameLower)) {
+                      label = '💼 User Invoice (Admin Finance / Keuangan)';
+                    } else {
+                      label = '🔑 Admin 1 (Pemesanan, Pengeluaran & Penerimaan)';
+                    }
+
+                    return <option key={r.id} value={r.id}>{label}</option>;
+                  })}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
-                <select className="input-field" value={form.status} onChange={set('status')}>
-                  <option value="aktif">Aktif</option>
-                  <option value="nonaktif">Nonaktif</option>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status Akun</label>
+                <select className="input-field font-semibold text-slate-800" value={form.status} onChange={set('status')}>
+                  <option value="aktif">Aktif (Dapat Login)</option>
+                  <option value="nonaktif">Nonaktif (Akses Diblokir)</option>
                 </select>
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Alamat <span className="font-normal text-gray-400">(opsional)</span></label>
-              <textarea className="input-field resize-none" rows="2" value={form.alamat} onChange={set('alamat')} />
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Alamat Lengkap <span className="font-normal text-slate-400 lowercase">(opsional)</span></label>
+              <textarea className="input-field resize-none" rows="2" value={form.alamat} onChange={set('alamat')} placeholder="Alamat tinggal atau kantor..." />
             </div>
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-3">
               <button type="button" onClick={() => setModal({ open: false, item: null })} className="btn-secondary flex-1">Batal</button>
               <button type="submit" disabled={submitting} className="btn-primary flex-1">
-                {submitting ? 'Menyimpan...' : modal.item ? 'Perbarui' : 'Simpan'}
+                {submitting ? 'Menyimpan...' : modal.item ? 'Perbarui Akun' : 'Simpan Akun Baru'}
               </button>
             </div>
           </form>
@@ -275,8 +323,9 @@ export default function UsersAdminPage() {
 
         <ConfirmDialog isOpen={delConfirm.open} onClose={() => setDelConfirm({ open: false, id: null })}
           onConfirm={handleDelete} title="Hapus User"
-          message="User ini akan dihapus permanen. Semua data terkait akan ikut terhapus." />
+          message="User ini akan dihapus permanen. Apakah Anda yakin?" />
       </div>
     </AppLayout>
   );
 }
+

@@ -18,6 +18,18 @@ const base64ToBuffer = (base64Str) => {
   }
 };
 
+const resolveLocalImagePath = (imgPath) => {
+  if (!imgPath) return null;
+  try {
+    let clean = imgPath.replace(/\\/g, '/');
+    if (clean.startsWith('http://') || clean.startsWith('https://')) return null;
+    if (clean.startsWith('/')) clean = clean.substring(1);
+    const absPath = path.isAbsolute(clean) ? clean : path.join(__dirname, '..', '..', clean);
+    if (fs.existsSync(absPath)) return absPath;
+  } catch (e) {}
+  return null;
+};
+
 /**
  * Generate PDF Serah Terima Barang Keluar
  */
@@ -37,8 +49,8 @@ const generateOutgoingPDF = (data, outputPath) => {
 
       // Header Banner
       doc.rect(40, 40, 515, 60).fill(navyColor);
-      doc.fillColor('#FFFFFF').fontSize(18).font('Helvetica-Bold').text('RentalHub', 55, 52);
-      doc.fillColor('#94A3B8').fontSize(9).font('Helvetica').text('Sistem Rental Alat Berat Online', 55, 73);
+      doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold').text('PT SCAL TECHNIC SERVICES', 55, 52);
+      doc.fillColor('#94A3B8').fontSize(9).font('Helvetica').text('Sistem Rental Alat Sampling Laboratorium Online', 55, 73);
 
       doc.fillColor('#FFFFFF').fontSize(14).font('Helvetica-Bold').text('BERITA ACARA SERAH TERIMA', 300, 52, { align: 'right', width: 240 });
       doc.fillColor('#A5B4FC').fontSize(9).font('Helvetica').text('DOKUMEN BARANG KELUAR', 300, 72, { align: 'right', width: 240 });
@@ -74,12 +86,12 @@ const generateOutgoingPDF = (data, outputPath) => {
       drawRow('Alamat Penyewa', data.customer_address, 45, y, 120);
       y += 24;
 
-      // Section 2: Detail Alat Berat & Periode Rental
+      // Section 2: Detail Alat & Periode Rental
       doc.rect(40, y, 515, 20).fill(indigoColor);
-      doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text('2. DETAIL ALAT BERAT & PERIODE RENTAL', 48, y + 5);
+      doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text('2. DETAIL ALAT & PERIODE RENTAL', 48, y + 5);
       y += 26;
 
-      drawRow('Nama Alat Berat', data.nama_alat, 45, y);
+      drawRow('Nama Alat', data.nama_alat, 45, y);
       drawRow('Kode Alat', data.kode_alat, 300, y);
       y += 16;
       drawRow('Merk / Tipe', data.merk, 45, y);
@@ -116,20 +128,55 @@ const generateOutgoingPDF = (data, outputPath) => {
       // Catatan
       doc.fillColor('#64748B').fontSize(9).font('Helvetica-Bold').text('Catatan Kondisi Barang:', 45, y);
       y += 14;
-      doc.rect(40, y, 515, 35).fill(lightBgColor).stroke(borderGray);
+      doc.rect(40, y, 515, 30).fill(lightBgColor).stroke(borderGray);
       doc.fillColor(navyColor).fontSize(8.5).font('Helvetica').text(data.catatan || 'Kondisi barang dalam keadaan baik dan laik pakai saat diserahterimakan.', 48, y + 6, { width: 500 });
-      y += 45;
+      y += 40;
+
+      // Section 4: Foto Dokumentasi Fisik Alat / Serah Terima
+      let photoList = [];
+      if (Array.isArray(data.photos)) photoList = [...data.photos];
+      if (data.gambar_alat) photoList.push(data.gambar_alat);
+      const validPhotoPaths = [...new Set(photoList.map(resolveLocalImagePath).filter(Boolean))];
+
+      if (validPhotoPaths.length > 0) {
+        if (y > 560) { doc.addPage(); y = 40; }
+
+        doc.rect(40, y, 515, 20).fill(indigoColor);
+        doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text('4. FOTO DOKUMENTASI FISIK BARANG / ALAT', 48, y + 5);
+        y += 28;
+
+        const imgWidth = 145;
+        const imgHeight = 90;
+        const maxImgs = Math.min(validPhotoPaths.length, 3);
+
+        validPhotoPaths.slice(0, maxImgs).forEach((imgPath, i) => {
+          const posX = 45 + i * 165;
+          try {
+            doc.rect(posX - 2, y - 2, imgWidth + 4, imgHeight + 4).fill('#F1F5F9').stroke(borderGray);
+            doc.image(imgPath, posX, y, { fit: [imgWidth, imgHeight], align: 'center', valig: 'center' });
+          } catch (imgErr) {
+            console.error('Error rendering image in Outgoing PDF:', imgErr);
+          }
+        });
+        y += imgHeight + 15;
+      }
+
+      // Check height before signature section
+      if (y > 640) {
+        doc.addPage();
+        y = 40;
+      }
 
       // Pernyataan Serah Terima
       doc.fillColor(textColor).fontSize(8.5).font('Helvetica-Oblique').text(
-        'Dengan ini menyatakan bahwa barang/alat berat di atas telah diperiksa dan diserahterimakan dalam kondisi sesuai dengan yang tercantum di dalam berita acara ini.',
+        'Dengan ini menyatakan bahwa barang/alat di atas telah diperiksa dan diserahterimakan dalam kondisi sesuai dengan yang tercantum di dalam berita acara ini.',
         40, y, { width: 515, align: 'justify' }
       );
-      y += 25;
+      y += 22;
 
-      // Section 4: Tanda Tangan Digital
-      doc.rect(40, y, 245, 120).stroke(borderGray);
-      doc.rect(310, y, 245, 120).stroke(borderGray);
+      // Section 5: Tanda Tangan Digital
+      doc.rect(40, y, 245, 110).stroke(borderGray);
+      doc.rect(310, y, 245, 110).stroke(borderGray);
 
       doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text('Tanda Tangan Penyewa', 40, y + 8, { width: 245, align: 'center' });
       doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text('Tanda Tangan Admin Rental', 310, y + 8, { width: 245, align: 'center' });
@@ -138,7 +185,7 @@ const generateOutgoingPDF = (data, outputPath) => {
       const custSigBuf = base64ToBuffer(data.customer_signature);
       if (custSigBuf) {
         try {
-          doc.image(custSigBuf, 85, y + 25, { fit: [155, 60], align: 'center', valig: 'center' });
+          doc.image(custSigBuf, 85, y + 25, { fit: [155, 55], align: 'center', valig: 'center' });
         } catch (e) {
           doc.fillColor('#94A3B8').fontSize(8).text('[Tanda Tangan Terlampir]', 40, y + 45, { width: 245, align: 'center' });
         }
@@ -148,14 +195,14 @@ const generateOutgoingPDF = (data, outputPath) => {
       const adminSigBuf = base64ToBuffer(data.admin_signature);
       if (adminSigBuf) {
         try {
-          doc.image(adminSigBuf, 355, y + 25, { fit: [155, 60], align: 'center', valig: 'center' });
+          doc.image(adminSigBuf, 355, y + 25, { fit: [155, 55], align: 'center', valig: 'center' });
         } catch (e) {
           doc.fillColor('#94A3B8').fontSize(8).text('[Tanda Tangan Terlampir]', 310, y + 45, { width: 245, align: 'center' });
         }
       }
 
-      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.customer_name || 'Penyewa'} )`, 40, y + 98, { width: 245, align: 'center' });
-      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.admin_name || 'Admin Rental'} )`, 310, y + 98, { width: 245, align: 'center' });
+      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.customer_name || 'Penyewa'} )`, 40, y + 90, { width: 245, align: 'center' });
+      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.admin_name || 'Admin Rental'} )`, 310, y + 90, { width: 245, align: 'center' });
 
       doc.end();
 
@@ -186,8 +233,8 @@ const generateReturnPDF = (data, outputPath) => {
 
       // Header Banner
       doc.rect(40, 40, 515, 60).fill(navyColor);
-      doc.fillColor('#FFFFFF').fontSize(18).font('Helvetica-Bold').text('RentalHub', 55, 52);
-      doc.fillColor('#94A3B8').fontSize(9).font('Helvetica').text('Sistem Rental Alat Berat Online', 55, 73);
+      doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold').text('PT SCAL TECHNIC SERVICES', 55, 52);
+      doc.fillColor('#94A3B8').fontSize(9).font('Helvetica').text('Sistem Rental Alat Sampling Laboratorium Online', 55, 73);
 
       doc.fillColor('#FFFFFF').fontSize(14).font('Helvetica-Bold').text('BERITA ACARA PENGEMBALIAN', 280, 52, { align: 'right', width: 260 });
       doc.fillColor('#A5B4FC').fontSize(9).font('Helvetica').text('DOKUMEN BARANG KEMBALI', 280, 72, { align: 'right', width: 260 });
@@ -218,7 +265,7 @@ const generateReturnPDF = (data, outputPath) => {
       drawRow('Nama Penyewa', data.customer_name, 300, y);
       y += 16;
       drawRow('Nomor HP', data.customer_phone, 45, y);
-      drawRow('Nama Alat Berat', data.nama_alat, 300, y);
+      drawRow('Nama Alat', data.nama_alat, 300, y);
       y += 16;
       drawRow('Kode Alat', data.kode_alat, 45, y);
       drawRow('Tanggal Keluar', data.tanggal_keluar, 300, y);
@@ -267,20 +314,55 @@ const generateReturnPDF = (data, outputPath) => {
       // Catatan Admin
       doc.fillColor('#64748B').fontSize(9).font('Helvetica-Bold').text('Catatan Pemeriksaan Admin:', 45, y);
       y += 14;
-      doc.rect(40, y, 515, 35).fill(lightBgColor).stroke(borderGray);
-      doc.fillColor(navyColor).fontSize(8.5).font('Helvetica').text(data.catatan_admin || 'Alat berat telah diterima kembali oleh admin penerima dan diperiksa seluruh fungsi teknisnya.', 48, y + 6, { width: 500 });
-      y += 45;
+      doc.rect(40, y, 515, 30).fill(lightBgColor).stroke(borderGray);
+      doc.fillColor(navyColor).fontSize(8.5).font('Helvetica').text(data.catatan_admin || 'Alat telah diterima kembali oleh admin penerima dan diperiksa seluruh fungsi teknisnya.', 48, y + 6, { width: 500 });
+      y += 40;
+
+      // Section 4: Foto Dokumentasi Fisik Pengembalian Barang
+      let photoList = [];
+      if (Array.isArray(data.photos)) photoList = [...data.photos];
+      if (data.gambar_alat) photoList.push(data.gambar_alat);
+      const validPhotoPaths = [...new Set(photoList.map(resolveLocalImagePath).filter(Boolean))];
+
+      if (validPhotoPaths.length > 0) {
+        if (y > 560) { doc.addPage(); y = 40; }
+
+        doc.rect(40, y, 515, 20).fill(purpleColor);
+        doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold').text('4. FOTO DOKUMENTASI FISIK PENGEMBALIAN BARANG', 48, y + 5);
+        y += 28;
+
+        const imgWidth = 145;
+        const imgHeight = 90;
+        const maxImgs = Math.min(validPhotoPaths.length, 3);
+
+        validPhotoPaths.slice(0, maxImgs).forEach((imgPath, i) => {
+          const posX = 45 + i * 165;
+          try {
+            doc.rect(posX - 2, y - 2, imgWidth + 4, imgHeight + 4).fill('#F1F5F9').stroke(borderGray);
+            doc.image(imgPath, posX, y, { fit: [imgWidth, imgHeight], align: 'center', valig: 'center' });
+          } catch (imgErr) {
+            console.error('Error rendering image in Return PDF:', imgErr);
+          }
+        });
+        y += imgHeight + 15;
+      }
+
+      // Check height before signature section
+      if (y > 640) {
+        doc.addPage();
+        y = 40;
+      }
 
       // Pernyataan Pengembalian
       doc.fillColor(textColor).fontSize(8.5).font('Helvetica-Oblique').text(
-        'Demikian berita acara pengembalian alat berat ini dibuat dengan sebenar-benarnya dan ditandatangani oleh kedua belah pihak sebagai bukti sah transaksi pengembalian.',
+        'Demikian berita acara pengembalian alat ini dibuat dengan sebenar-benarnya dan ditandatangani oleh kedua belah pihak sebagai bukti sah transaksi pengembalian.',
         40, y, { width: 515, align: 'justify' }
       );
-      y += 25;
+      y += 22;
 
-      // Section 4: Tanda Tangan Digital
-      doc.rect(40, y, 245, 115).stroke(borderGray);
-      doc.rect(310, y, 245, 115).stroke(borderGray);
+      // Section 5: Tanda Tangan Digital
+      doc.rect(40, y, 245, 110).stroke(borderGray);
+      doc.rect(310, y, 245, 110).stroke(borderGray);
 
       doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text('Tanda Tangan Penyewa', 40, y + 8, { width: 245, align: 'center' });
       doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text('Tanda Tangan Admin Penerima', 310, y + 8, { width: 245, align: 'center' });
@@ -305,8 +387,8 @@ const generateReturnPDF = (data, outputPath) => {
         }
       }
 
-      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.customer_name || 'Penyewa'} )`, 40, y + 95, { width: 245, align: 'center' });
-      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.admin_name || 'Admin Penerima'} )`, 310, y + 95, { width: 245, align: 'center' });
+      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.customer_name || 'Penyewa'} )`, 40, y + 90, { width: 245, align: 'center' });
+      doc.fillColor(navyColor).fontSize(9).font('Helvetica-Bold').text(`( ${data.admin_name || 'Admin Penerima'} )`, 310, y + 90, { width: 245, align: 'center' });
 
       doc.end();
 

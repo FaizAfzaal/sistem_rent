@@ -547,7 +547,15 @@ const exportExcel = async (req, res) => {
     const where = {};
     const bookings = await Booking.findAll({
       where,
-      include: [{ model: User, as: 'user', attributes: ['nama'] }],
+      include: [
+        { model: User, as: 'user', attributes: ['nama'] },
+        { model: Customer, as: 'customer', attributes: ['full_name'] },
+        {
+          model: BookingDetail,
+          as: 'details',
+          include: [{ model: Alat, as: 'alat', attributes: ['nama_alat'] }],
+        },
+      ],
       order: [['created_at', 'DESC']],
     });
 
@@ -557,21 +565,25 @@ const exportExcel = async (req, res) => {
       { header: 'ID', key: 'id', width: 8 },
       { header: 'Kode', key: 'kode', width: 18 },
       { header: 'Customer', key: 'customer', width: 24 },
+      { header: 'Detail Alat Disewa', key: 'detail_alat', width: 40 },
       { header: 'Mulai', key: 'mula', width: 16 },
       { header: 'Selesai', key: 'selesai', width: 16 },
       { header: 'Status', key: 'status', width: 14 },
-      { header: 'Total', key: 'total', width: 16 },
+
     ];
 
     bookings.forEach(b => {
+      const custName = b.customer?.full_name || b.user?.nama || '-';
+      const detailAlatText = (b.details || []).map(d => `${d.alat?.nama_alat || 'Alat'} (${d.qty || 1} Unit)`).join(', ') || '-';
       sheet.addRow({
         id: b.id,
         kode: b.kode_booking,
-        customer: b.user?.nama || '-',
+        customer: custName,
+        detail_alat: detailAlatText,
         mula: b.tanggal_mulai,
         selesai: b.tanggal_selesai,
         status: b.status,
-        total: b.total_harga,
+
       });
     });
 
@@ -586,7 +598,18 @@ const exportExcel = async (req, res) => {
 
 const exportPDF = async (req, res) => {
   try {
-    const bookings = await Booking.findAll({ include: [{ model: User, as: 'user', attributes: ['nama'] }], order: [['created_at', 'DESC']] });
+    const bookings = await Booking.findAll({
+      include: [
+        { model: User, as: 'user', attributes: ['nama'] },
+        { model: Customer, as: 'customer', attributes: ['full_name'] },
+        {
+          model: BookingDetail,
+          as: 'details',
+          include: [{ model: Alat, as: 'alat', attributes: ['nama_alat'] }],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+    });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="bookings_${Date.now()}.pdf"`);
@@ -596,8 +619,11 @@ const exportPDF = async (req, res) => {
     doc.moveDown(1);
 
     bookings.forEach(b => {
-      doc.fontSize(10).text(`${b.kode_booking} • ${b.user?.nama || '-'} • ${b.tanggal_mulai} → ${b.tanggal_selesai} • ${b.status}`);
-      doc.fontSize(9).text(`Total: Rp ${b.total_harga}`);
+      const custName = b.customer?.full_name || b.user?.nama || '-';
+      const detailAlatText = (b.details || []).map(d => `${d.alat?.nama_alat || 'Alat'} (${d.qty || 1} Unit)`).join(', ') || '-';
+      doc.fontSize(10).text(`${b.kode_booking} • Customer: ${custName} • Status: ${b.status}`);
+      doc.fontSize(9).text(`Detail Alat: ${detailAlatText}`);
+      doc.fontSize(9).text(`Periode Rental: ${b.tanggal_mulai} s/d ${b.tanggal_selesai}`);
       doc.moveDown(0.6);
     });
     doc.end();

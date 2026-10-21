@@ -10,8 +10,8 @@ router.use(authenticate);
 router.get('/', bookingController.getAll);
 router.get('/kalender', bookingController.getKalender);
 router.get('/logbook', bookingController.getLogBook);
-router.get('/export/excel', authorize('admin'), bookingController.exportExcel);
-router.get('/export/pdf', authorize('admin'), bookingController.exportPDF);
+router.get('/export/excel', authorize('admin', 'keuangan', 'finance', 'admin_finance', 'ADMIN_BOOKING', 'ADMIN_PICKUP', 'ADMIN_RETURN'), bookingController.exportExcel);
+router.get('/export/pdf', authorize('admin', 'keuangan', 'finance', 'admin_finance', 'ADMIN_BOOKING', 'ADMIN_PICKUP', 'ADMIN_RETURN'), bookingController.exportPDF);
 router.get('/:id', bookingController.getById);
 
 router.post(

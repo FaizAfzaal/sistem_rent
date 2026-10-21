@@ -5,7 +5,7 @@ const roleController = require('../controllers/roleController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
-router.use(authenticate, authorize('admin'));
+router.use(authenticate, authorize('admin', 'keuangan', 'admin_finance', 'finance'));
 
 router.get('/', roleController.getAll);
 router.get('/:id', roleController.getById);

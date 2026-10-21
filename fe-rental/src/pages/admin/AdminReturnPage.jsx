@@ -67,21 +67,34 @@ export default function AdminReturnPage() {
       ? [targetDetail]
       : (booking.details || []).filter(d => ['BARANG_SEDANG_DISEWA', 'RENTED', 'SEDANG_DISEWA'].includes(d.status));
 
-    // Populate checklist items for return
+    // Populate checklist items for return per alat
     const initChecklists = {};
     activeRentedDetails.forEach(d => {
-      const itemChecklists = d.checklists || booking.checklists || [];
+      let itemChecklists = [];
+      if (d.checklists && d.checklists.length > 0) {
+        itemChecklists = d.checklists;
+      } else if (booking.checklists && booking.checklists.length > 0) {
+        itemChecklists = booking.checklists.filter(c => c.booking_detail_id === d.id || (!c.booking_detail_id && c.alat_id === d.alat_id));
+      }
+
+      if (itemChecklists.length === 0 && activeRentedDetails.length === 1 && booking.checklists) {
+        itemChecklists = booking.checklists;
+      }
+
       itemChecklists.forEach(c => {
-        if (!c.booking_detail_id || c.booking_detail_id === d.id) {
-          initChecklists[c.id] = {
-            id: c.id,
-            nama_kelengkapan: c.nama_kelengkapan,
-            status_keluar: c.status_keluar || 'ADA',
-            keterangan_keluar: c.keterangan_keluar || '',
-            status_kembali: c.status_kembali || 'ADA',
-            keterangan_kembali: c.keterangan_kembali || '',
-          };
-        }
+        initChecklists[c.id] = {
+          id: c.id,
+          booking_detail_id: d.id,
+          alat_id: d.alat_id,
+          nama_alat: d.alat?.nama_alat || 'Alat',
+          kode_alat: d.alat?.kode_alat || '',
+          qty: d.qty || 1,
+          nama_kelengkapan: c.nama_kelengkapan,
+          status_keluar: c.status_keluar || 'ADA',
+          keterangan_keluar: c.keterangan_keluar || '',
+          status_kembali: c.status_kembali || 'ADA',
+          keterangan_kembali: c.keterangan_kembali || '',
+        };
       });
     });
     setReturnChecklistsState(initChecklists);
@@ -485,101 +498,161 @@ export default function AdminReturnPage() {
                         </span>
                       </div>
 
-                      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-                        <table className="w-full text-xs text-left">
-                          <thead className="bg-slate-100 border-b border-gray-200 text-gray-700 font-extrabold">
-                            <tr>
-                              <th className="p-3">KELENGKAPAN</th>
-                              <th className="p-3">SAAT KELUAR</th>
-                              <th className="p-3">SAAT KEMBALI</th>
-                              <th className="p-3">KETERANGAN PENGEMBALIAN</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 font-medium">
-                            {Object.values(returnChecklistsState).map(item => {
-                              const isKeluarAda = item.status_keluar === 'ADA';
-                              const isKembaliAda = item.status_kembali === 'ADA';
-                              const isKekurangan = isKeluarAda && !isKembaliAda;
+                      <div className="space-y-4">
+                        {(processModal.activeDetails || processModal.booking?.details || []).map(detail => {
+                          const detailItems = Object.values(returnChecklistsState).filter(
+                            c => c.booking_detail_id === detail.id || (!c.booking_detail_id && (processModal.activeDetails || []).length === 1)
+                          );
 
-                              return (
-                                <tr key={item.id} className={isKekurangan ? 'bg-red-50/80' : ''}>
-                                  <td className="p-3 font-bold text-gray-900">
-                                    {item.nama_kelengkapan}
-                                    {isKekurangan && (
-                                      <span className="block text-[10px] text-red-600 font-extrabold mt-0.5">
-                                        ⚠️ KEKURANGAN SAAT PENGEMBALIAN
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="p-3">
-                                    {isKeluarAda ? (
-                                      <span className="inline-flex items-center gap-1 font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> ✓ Ada
-                                      </span>
-                                    ) : (
-                                      <div className="flex flex-col">
-                                        <span className="inline-flex items-center gap-1 font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                                          <XCircle className="h-3.5 w-3.5 text-red-600" /> ✕ Tidak Ada
-                                        </span>
-                                        {item.keterangan_keluar && (
-                                          <span className="text-[10px] text-gray-500 italic mt-0.5">({item.keterangan_keluar})</span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="p-3">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => setReturnChecklistsState(prev => ({
-                                          ...prev,
-                                          [item.id]: { ...prev[item.id], status_kembali: 'ADA', keterangan_kembali: '' }
-                                        }))}
-                                        className={`px-2.5 py-1 rounded text-[11px] font-extrabold flex items-center gap-1 transition-all ${
-                                          isKembaliAda
-                                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        <CheckCircle2 className="h-3 w-3" /> ADA
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setReturnChecklistsState(prev => ({
-                                          ...prev,
-                                          [item.id]: { ...prev[item.id], status_kembali: 'TIDAK_ADA' }
-                                        }))}
-                                        className={`px-2.5 py-1 rounded text-[11px] font-extrabold flex items-center gap-1 transition-all ${
-                                          !isKembaliAda
-                                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        <XCircle className="h-3 w-3" /> TIDAK ADA
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td className="p-3">
-                                    {!isKembaliAda ? (
-                                      <input
-                                        type="text"
-                                        placeholder="Keterangan kekurangan..."
-                                        value={item.keterangan_kembali || ''}
-                                        onChange={e => setReturnChecklistsState(prev => ({
-                                          ...prev,
-                                          [item.id]: { ...prev[item.id], keterangan_kembali: e.target.value }
-                                        }))}
-                                        className="w-full px-2.5 py-1 text-xs border border-red-300 bg-white rounded text-red-900 focus:ring-1 focus:ring-red-500 font-medium"
-                                      />
-                                    ) : (
-                                      <span className="text-gray-400 font-normal">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                          if (detailItems.length === 0) return null;
+
+                          return (
+                            <div key={detail.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-xs">
+                              {/* Header Alat */}
+                              <div className="bg-slate-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-4 w-4 text-indigo-600" />
+                                  <span className="font-extrabold text-xs text-slate-900">{detail.alat?.nama_alat || 'Alat'}</span>
+                                  {detail.alat?.kode_alat && (
+                                    <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-semibold">
+                                      {detail.alat.kode_alat}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-gray-500 font-medium">({detail.qty || 1} Unit)</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReturnChecklistsState(prev => {
+                                        const next = { ...prev };
+                                        detailItems.forEach(item => {
+                                          next[item.id] = { ...next[item.id], status_kembali: 'ADA', keterangan_kembali: '' };
+                                        });
+                                        return next;
+                                      });
+                                    }}
+                                    className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded transition cursor-pointer"
+                                  >
+                                    ✓ Semua Ada
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReturnChecklistsState(prev => {
+                                        const next = { ...prev };
+                                        detailItems.forEach(item => {
+                                          next[item.id] = { ...next[item.id], status_kembali: 'TIDAK_ADA' };
+                                        });
+                                        return next;
+                                      });
+                                    }}
+                                    className="text-[10px] font-extrabold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-0.5 rounded transition cursor-pointer"
+                                  >
+                                    ✕ Semua Tidak Ada
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs text-left">
+                                  <thead className="bg-slate-50/50 border-b border-gray-200 text-gray-600 font-extrabold text-[11px]">
+                                    <tr>
+                                      <th className="p-2.5">KELENGKAPAN</th>
+                                      <th className="p-2.5">SAAT KELUAR</th>
+                                      <th className="p-2.5">SAAT KEMBALI</th>
+                                      <th className="p-2.5">KETERANGAN PENGEMBALIAN</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 font-medium">
+                                    {detailItems.map(item => {
+                                      const isKeluarAda = item.status_keluar === 'ADA';
+                                      const isKembaliAda = item.status_kembali === 'ADA';
+                                      const isKekurangan = isKeluarAda && !isKembaliAda;
+
+                                      return (
+                                        <tr key={item.id} className={isKekurangan ? 'bg-red-50/80' : ''}>
+                                          <td className="p-2.5 font-bold text-gray-900">
+                                            {item.nama_kelengkapan}
+                                            {isKekurangan && (
+                                              <span className="block text-[10px] text-red-600 font-extrabold mt-0.5">
+                                                ⚠️ KEKURANGAN SAAT PENGEMBALIAN
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="p-2.5">
+                                            {isKeluarAda ? (
+                                              <span className="inline-flex items-center gap-1 font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> ✓ Ada
+                                              </span>
+                                            ) : (
+                                              <div className="flex flex-col">
+                                                <span className="inline-flex items-center gap-1 font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                                                  <XCircle className="h-3.5 w-3.5 text-red-600" /> ✕ Tidak Ada
+                                                </span>
+                                                {item.keterangan_keluar && (
+                                                  <span className="text-[10px] text-gray-500 italic mt-0.5">({item.keterangan_keluar})</span>
+                                                )}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="p-2.5">
+                                            <div className="flex items-center gap-1.5">
+                                              <button
+                                                type="button"
+                                                onClick={() => setReturnChecklistsState(prev => ({
+                                                  ...prev,
+                                                  [item.id]: { ...prev[item.id], status_kembali: 'ADA', keterangan_kembali: '' }
+                                                }))}
+                                                className={`px-2.5 py-1 rounded text-[11px] font-extrabold flex items-center gap-1 transition-all ${
+                                                  isKembaliAda
+                                                    ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                }`}
+                                              >
+                                                <CheckCircle2 className="h-3 w-3" /> ADA
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setReturnChecklistsState(prev => ({
+                                                  ...prev,
+                                                  [item.id]: { ...prev[item.id], status_kembali: 'TIDAK_ADA' }
+                                                }))}
+                                                className={`px-2.5 py-1 rounded text-[11px] font-extrabold flex items-center gap-1 transition-all ${
+                                                  !isKembaliAda
+                                                    ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                }`}
+                                              >
+                                                <XCircle className="h-3 w-3" /> TIDAK ADA
+                                              </button>
+                                            </div>
+                                          </td>
+                                          <td className="p-2.5">
+                                            {!isKembaliAda ? (
+                                              <input
+                                                type="text"
+                                                placeholder="Keterangan kekurangan..."
+                                                value={item.keterangan_kembali || ''}
+                                                onChange={e => setReturnChecklistsState(prev => ({
+                                                  ...prev,
+                                                  [item.id]: { ...prev[item.id], keterangan_kembali: e.target.value }
+                                                }))}
+                                                className="w-full px-2.5 py-1 text-xs border border-red-300 bg-white rounded text-red-900 focus:ring-1 focus:ring-red-500 font-medium"
+                                              />
+                                            ) : (
+                                              <span className="text-gray-400 font-normal">-</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

@@ -68,6 +68,12 @@ const uploadReturnPhotos = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB per photo
 });
 
+const uploadChecklist = multer({
+  storage: createStorage('checklist'),
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
 module.exports = {
   uploadAlat,
   uploadUser,
@@ -75,4 +81,5 @@ module.exports = {
   uploadCustomer,
   uploadPickupPhotos,
   uploadReturnPhotos,
+  uploadChecklist,
 };

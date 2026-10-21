@@ -19,8 +19,7 @@ const getReadyPickups = async (req, res) => {
 
     // Query BookingDetail yang tanggal_mulai <= hari ini WIB dan belum pernah dikeluarkannya
     const detailWhere = {
-      status: { [Op.in]: ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi', 'MENUNGGU_KETERSEDIAAN'] },
-      tanggal_mulai: { [Op.lte]: todayStr }
+      status: { [Op.in]: ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi', 'MENUNGGU_KETERSEDIAAN'] }
     };
 
     const readyDetails = await BookingDetail.findAll({
@@ -76,7 +75,7 @@ const getReadyPickups = async (req, res) => {
     const filteredRows = rows.map(b => {
       const bJson = b.toJSON();
       const readyItems = (bJson.details || []).filter(d =>
-        d.tanggal_mulai <= todayStr && ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi'].includes(d.status)
+        ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi', 'MENUNGGU_KETERSEDIAAN'].includes(d.status)
       );
       return {
         ...bJson,
@@ -338,6 +337,9 @@ const addEquipmentToBooking = async (req, res) => {
       });
     }
 
+    // Ensure checklists created for newly added items
+    await ensureBookingChecklists(booking.id).catch(() => {});
+
     // Recalculate total booking price and top-level date range
     const updatedDetails = await BookingDetail.findAll({ where: { booking_id: booking.id } });
     const newTotalHarga = updatedDetails.reduce((sum, d) => sum + Number(d.subtotal || 0), 0);
@@ -409,7 +411,7 @@ const processPickup = async (req, res) => {
 
     // Identify target BookingDetail items eligible for pickup (tanggal_mulai <= effectivePickupDate and status WAITING_PICKUP)
     let targetDetails = (booking.details || []).filter(d =>
-      d.tanggal_mulai <= effectivePickupDate && ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi'].includes(d.status)
+      ['WAITING_PICKUP', 'MENUNGGU_BARANG_KELUAR', 'pending', 'dikonfirmasi', 'MENUNGGU_KETERSEDIAAN'].includes(d.status)
     );
 
     if (Array.isArray(booking_detail_ids) && booking_detail_ids.length > 0) {
